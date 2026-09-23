@@ -69,3 +69,36 @@ cargo test
 `db.rs` owns SQLite access and result limits, `app.rs` handles application state and keyboard commands, `editor.rs` implements Unicode-aware text editing, and `ui.rs` renders the interface. Tests cover queries, transactions, pagination, limits, error recovery, keyboard behavior, and rendering at several terminal sizes.
 
 Built with [Ratatui](https://docs.rs/ratatui/0.30.2/ratatui/), Crossterm, and [rusqlite](https://docs.rs/rusqlite/0.40.2/rusqlite/).
+
+## Releases and Homebrew
+
+The [release workflow](.github/workflows/release.yml) follows the release process used by `shonenada-vibe/mdw`. Pushing a stable `vX.Y.Z` tag matching the version in `Cargo.toml`:
+
+1. Tests and builds native binaries for Apple Silicon macOS, Intel macOS, and x86-64 Linux, using the committed `Cargo.lock`.
+2. Publishes a GitHub release with a `.tar.gz` archive and SHA-256 checksum for each platform.
+3. Opens a PR against `shonenada/homebrew-tap` to add or update `Formula/sqlite-tui.rb`. Merging that PR makes the version available through Homebrew.
+
+Configure a repository secret named `HOMEBREW_TAP_GITHUB_TOKEN` before releasing. Use a token with **Contents: read and write** and **Pull requests: read and write** access to `shonenada/homebrew-tap`, as required by [create-pull-request](https://github.com/peter-evans/create-pull-request#token). Without it, the GitHub release can finish, but the tap update job fails with a setup message. After configuring the secret, rerun the failed job.
+
+For the initial release (after the workflow is on `main`):
+
+```sh
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+For later releases, update `Cargo.toml`, run `cargo check` to refresh `Cargo.lock`, and commit both before tagging. Prerelease tags are rejected. Archives are named `sqlite-tui-vX.Y.Z-TARGET.tar.gz` and contain the executable and README. macOS binaries target macOS 11 or newer; the Linux binary is built on Ubuntu 22.04 and requires glibc 2.35 or newer. Linux ARM builds are not included.
+
+After the first formula PR is merged:
+
+```sh
+brew install shonenada/tap/sqlite-tui
+```
+
+To regenerate a formula from published checksums, or from downloaded release artifacts:
+
+```sh
+scripts/generate-formula.sh v0.1.0
+scripts/generate-formula.sh v0.1.0 ./release-artifacts
+python3 -m unittest discover -s scripts -p 'test_*.py'
+```
